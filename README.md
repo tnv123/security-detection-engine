@@ -138,6 +138,18 @@ rules = load_correlation_rules_from_directory(
 alerts = CorrelationEngine(rules).analyze_events(events)
 ```
 
+## Unified Event Pipeline
+
+`Pipeline(detection_engine, correlation_engine).process(events)` принимает
+любой конечный `Iterable[SecurityEvent]`, включая генератор или список
+событий из `analyze_ssh_log(...).events`. Каждый вызов собирает свою партию
+и передаёт её обоим движкам. Импортируйте `Pipeline` из
+`security_detection_engine.pipeline`.
+
+В `PipelineResult` поле `event_count` содержит число обработанных событий.
+Списки `alerts` и `correlation_alerts` содержат срабатывания каждого движка,
+а `alert_count` и `correlation_alert_count` возвращают длины этих списков.
+
 ## Технологии
 
 - Python 3.11
