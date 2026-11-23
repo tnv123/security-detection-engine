@@ -150,6 +150,83 @@ alerts = CorrelationEngine(rules).analyze_events(events)
 Списки `alerts` и `correlation_alerts` содержат срабатывания каждого движка,
 а `alert_count` и `correlation_alert_count` возвращают длины этих списков.
 
+## Storage Layer
+
+Пакет `security_detection_engine.storage` хранит нормализованные события и
+оба типа алертов через синхронный SQLAlchemy 2.x и psycopg 3.
+Alembic управляет схемой PostgreSQL. Зависимости устанавливаются вместе с проектом
+командой `python -m pip install -e ".[dev]"`.
+
+Таблица `security_events` хранит UUID, timezone-aware timestamp, источник,
+тип, severity, host и JSONB data. `detection_alerts` ссылается на событие
+внешним ключом. `correlation_alerts` хранит интервал и JSONB group_values,
+а `correlation_events` связывает алерт с UUID событий по позиции.
+Первичный ключ связи состоит из UUID алерта и позиции.
+
+Задайте `SDE_DATABASE_URL` строкой вида
+`postgresql+psycopg://USER:PASSWORD@HOST:5432/DATABASE` через окружение.
+Подставьте собственные значения. Подключение создаётся при обращении к БД.
+Примените схему командой `python -m alembic upgrade head`.
+Откат первоначальной схемы выполняется через `python -m alembic downgrade base`
+и удаляет сохранённые данные.
+
+```python
+from security_detection_engine.storage import (
+    PipelineResultStore,
+    create_database_engine,
+    create_session_factory,
+    transaction,
+)
+
+engine = create_database_engine()
+factory = create_session_factory(engine)
+try:
+    events = list(normalized_events)
+    result = pipeline.process(events)
+    with transaction(factory) as session:
+        PipelineResultStore(session).save(events, result)
+finally:
+    engine.dispose()
+```
+
+В примере `normalized_events` — входные SecurityEvent, `pipeline` — настроенный
+Pipeline. Репозитории `EventRepository`, `AlertRepository` и
+`CorrelationAlertRepository` принимают Session. Их методы `save()`, а также
+`EventRepository.save_many()` выполняют flush. Вызывающий код управляет
+транзакцией через `transaction(factory)` либо `with session.begin()`.
+Исключения обрабатываются за пределами контекста транзакции.
+Ошибка откатывает всю партию. UUID ссылок проверяются внешними ключами,
+события могут уже присутствовать в БД.
+
+Повторный UUID вызывает SQLAlchemy IntegrityError. Это относится и к повторной
+отправке идентичного объекта. Для ссылок на уже сохранённые события передавайте
+в store только новые события, а в PipelineResult указывайте их количество.
+Сами алерты должны иметь новые UUID.
+
+`get(uuid)` возвращает доменную Pydantic-модель либо None.
+`list(limit=100, offset=0)` сортирует по timestamp и UUID.
+Для событий доступны фильтры source, event_type, start_timestamp,
+end_timestamp. Временные границы включительные, с обязательным часовым поясом.
+
+Для интеграционных тестов создайте отдельную PostgreSQL-базу, например
+`createdb sde_test`, и задайте `SDE_TEST_DATABASE_URL` с драйвером
+`postgresql+psycopg`. У тестового пользователя должно быть право создавать
+схемы в этой базе. Используйте выделенную тестовую БД.
+Тесты создают временную схему, применяют миграции и удаляют схему после проверки.
+
+- Все тесты — `python -m pytest`.
+- PostgreSQL — `python -m pytest -m postgresql`.
+- Проверки без PostgreSQL — `python -m pytest -m "not postgresql"`.
+
+Без SDE_TEST_DATABASE_URL PostgreSQL-тесты пропускаются. При заданном URL
+ошибки подключения считаются провалом тестов.
+
+Хранение пакетное. JSON-совместимые значения сохраняются через сериализацию
+Pydantic в JSON, UUID и datetime внутри data/group_values становятся строками.
+PostgreSQL сохраняет момент времени, исходное смещение часового пояса
+при чтении может измениться. Пагинация через offset при конкурентных вставках
+может смещаться. Обновление и удаление объектов через репозитории пока отсутствуют.
+
 ## Технологии
 
 - Python 3.11

@@ -12,6 +12,9 @@ dependencies = [
     "pydantic-settings>=2,<3",
     "pyyaml>=6,<7",
     "scapy>=2.5,<3",
+    "sqlalchemy>=2,<3",
+    "alembic>=1.13,<2",
+    "psycopg[binary]>=3.1,<4",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +26,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = ["postgresql: интеграционные тесты на отдельной PostgreSQL"]
 
 [tool.ruff]
 line-length = 88
