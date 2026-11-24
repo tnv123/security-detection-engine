@@ -1,4 +1,5 @@
 from enum import StrEnum
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     version: str = "0.1.0"
     log_level: LogLevel = LogLevel.INFO
     database_url: str | None = None
+    rules_directory: Path = Path(__file__).resolve().parent / "rules"
 
 
 def get_settings() -> Settings:
