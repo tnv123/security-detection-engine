@@ -8,6 +8,8 @@ from test_storage_postgresql import database as database
 from security_detection_engine.api.app import create_app
 from security_detection_engine.api.dependencies import get_pipeline
 from security_detection_engine.config import Settings
+from security_detection_engine.correlation import CorrelationAlert
+from security_detection_engine.detection import Alert
 
 pytestmark = pytest.mark.postgresql
 
@@ -60,16 +62,29 @@ def test_pipeline_readback_and_filters(client, batch):
     ).json()
     assert [e["event_id"] for e in filtered] == [str(e.event_id) for e in events[1:3]]
     assert client.get("/events", params={"source": "windows"}).json() == []
-    assert client.get("/alerts").json() == result["alerts"]
-    assert client.get("/correlation-alerts").json() == result["correlation_alerts"]
+    expected_alerts = [Alert.model_validate(item) for item in result["alerts"]]
+    expected_correlations = [
+        CorrelationAlert.model_validate(item) for item in result["correlation_alerts"]
+    ]
+    assert [
+        Alert.model_validate(item) for item in client.get("/alerts").json()
+    ] == expected_alerts
+    assert [
+        CorrelationAlert.model_validate(item)
+        for item in client.get("/correlation-alerts").json()
+    ] == expected_correlations
     for alert in result["alerts"]:
-        assert client.get(f"/alerts/{alert['alert_id']}").json() == alert
+        assert Alert.model_validate(
+            client.get(f"/alerts/{alert['alert_id']}").json()
+        ) == Alert.model_validate(alert)
     alert = result["correlation_alerts"][0]
-    assert client.get(f"/correlation-alerts/{alert['correlation_id']}").json() == alert
-    assert (
-        client.get("/alerts", params={"limit": 1, "offset": 1}).json()
-        == result["alerts"][1:2]
-    )
+    assert CorrelationAlert.model_validate(
+        client.get(f"/correlation-alerts/{alert['correlation_id']}").json()
+    ) == CorrelationAlert.model_validate(alert)
+    assert [
+        Alert.model_validate(item)
+        for item in client.get("/alerts", params={"limit": 1, "offset": 1}).json()
+    ] == expected_alerts[1:2]
     for route in ["/events", "/alerts", "/correlation-alerts"]:
         assert client.get(f"{route}/{uuid4()}").status_code == 404
 
