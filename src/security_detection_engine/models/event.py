@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from security_detection_engine.models.values import finite_values
 
@@ -37,6 +37,11 @@ class SecurityEvent(BaseModel):
     data: dict[str, Any] = Field(default_factory=dict)
 
     _finite = field_validator("data")(finite_values)
+
+    @field_serializer("data", when_used="json")
+    def serialize_data(self, value: dict[str, Any]) -> dict[str, Any]:
+        """Повторно проверяет данные после возможной мутации модели."""
+        return finite_values(value)
 
     @field_validator("timestamp")
     @classmethod
