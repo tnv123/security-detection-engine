@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field, field_validator
 
 from security_detection_engine.models import Severity
+from security_detection_engine.models.values import finite_values
 
 
 class Operator(StrEnum):
@@ -24,6 +25,8 @@ class Condition(BaseModel):
     field: str = Field(min_length=1)
     operator: Operator
     value: Any
+
+    _finite = field_validator("value")(finite_values)
 
     @field_validator("field")
     @classmethod

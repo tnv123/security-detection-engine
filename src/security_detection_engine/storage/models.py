@@ -2,7 +2,14 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -78,7 +85,10 @@ class CorrelationEventRow(Base):
     """Позиция события в корреляционной последовательности."""
 
     __tablename__ = "correlation_events"
-    __table_args__ = (CheckConstraint("position >= 0", name="ck_event_position"),)
+    __table_args__ = (
+        CheckConstraint("position >= 0", name="ck_event_position"),
+        UniqueConstraint("correlation_id", "event_id", name="uq_correlation_event"),
+    )
 
     correlation_id: Mapped[UUID] = mapped_column(
         ForeignKey("correlation_alerts.correlation_id"), primary_key=True

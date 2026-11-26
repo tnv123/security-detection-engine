@@ -1,7 +1,10 @@
 from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.schema import CreateTable
 
@@ -10,6 +13,14 @@ from security_detection_engine.models import EventSource, SecurityEvent
 from security_detection_engine.storage import create_database_engine
 from security_detection_engine.storage.mapper import event_to_row
 from security_detection_engine.storage.models import Base, EventRow
+from security_detection_engine.storage.revision import EXPECTED_REVISION
+
+
+def test_expected_revision_matches_alembic_head():
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    scripts = ScriptDirectory.from_config(config)
+
+    assert scripts.get_heads() == [EXPECTED_REVISION]
 
 
 def test_database_configuration(monkeypatch):

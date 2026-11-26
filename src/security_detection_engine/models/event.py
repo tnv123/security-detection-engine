@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
+from security_detection_engine.models.values import finite_values
+
 
 class EventSource(StrEnum):
     """Источник события безопасности."""
@@ -33,6 +35,8 @@ class SecurityEvent(BaseModel):
     severity: Severity | None = None
     host: str | None = None
     data: dict[str, Any] = Field(default_factory=dict)
+
+    _finite = field_validator("data")(finite_values)
 
     @field_validator("timestamp")
     @classmethod

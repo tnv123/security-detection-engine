@@ -42,6 +42,24 @@ def database(monkeypatch):
     admin = create_database_engine(url)
     schema = "sde_test_" + uuid4().hex
     with admin.begin() as connection:
+        permitted = connection.scalar(
+            text("""
+            SELECT NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
+               AND shobj_description(d.oid, 'pg_database') = 'sde:disposable-tests'
+               AND current_user = pg_get_userbyid(d.datdba)
+               AND NOT rolreplication AND NOT rolbypassrls
+               AND NOT EXISTS (SELECT FROM pg_auth_members WHERE member=r.oid)
+               AND NOT EXISTS (
+                   SELECT FROM pg_database other
+                   WHERE other.datallowconn AND other.oid <> d.oid
+                   AND has_database_privilege(current_user,other.oid,'CONNECT')
+               )
+            FROM pg_roles r, pg_database d
+            WHERE r.rolname = current_user AND d.datname = current_database()
+        """)
+        )
+        if not permitted:
+            pytest.fail("Нужна помеченная тестовая БД с ограниченной ролью владельца")
         connection.execute(text(f'CREATE SCHEMA "{schema}"'))
     migration_url = make_url(url).update_query_dict(
         {"options": f"-csearch_path={schema}"}

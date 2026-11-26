@@ -2,11 +2,14 @@ services:
   db:
     image: postgres:18.3-bookworm
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_USER: ${POSTGRES_USER:-sde_admin}
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      MIGRATOR_PASSWORD: ${MIGRATOR_PASSWORD:?Set MIGRATOR_PASSWORD}
+      APP_PASSWORD: ${APP_PASSWORD:?Set APP_PASSWORD}
       PGDATA: /var/lib/postgresql/18/docker
     volumes:
+      - ./deploy/roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
       - postgres_data:/var/lib/postgresql
     networks:
       - backend
@@ -22,9 +25,9 @@ services:
   migrate:
     image: ${COMPOSE_PROJECT_NAME:-security-detection-engine}-app:local
     build: .
-    environment: &app_environment
-      SDE_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?Set POSTGRES_USER in .env}@db:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    environment:
+      SDE_DATABASE_URL: postgresql+psycopg://sde_migrator@db:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      PGPASSWORD: ${MIGRATOR_PASSWORD:?Set MIGRATOR_PASSWORD}
     command: ["python", "-m", "alembic", "upgrade", "head"]
     networks:
       - backend
@@ -36,7 +39,16 @@ services:
   api:
     image: ${COMPOSE_PROJECT_NAME:-security-detection-engine}-app:local
     build: .
-    environment: *app_environment
+    environment:
+      SDE_DATABASE_URL: postgresql+psycopg://sde_runtime@db:5432/${POSTGRES_DB:?Set POSTGRES_DB}
+      PGPASSWORD: ${APP_PASSWORD:?Set APP_PASSWORD}
+      SDE_MAX_REQUEST_BODY_BYTES: ${SDE_MAX_REQUEST_BODY_BYTES:-5242880}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
     ports:
       - "127.0.0.1:8000:8000"
     networks:

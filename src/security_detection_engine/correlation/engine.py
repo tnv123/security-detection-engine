@@ -6,6 +6,7 @@ from security_detection_engine.correlation.models import (
     CorrelationRule,
     CorrelationStep,
 )
+from security_detection_engine.detection.loader import unique_rules
 from security_detection_engine.detection.matcher import (
     match_condition,
     resolve_field,
@@ -30,7 +31,7 @@ class CorrelationEngine:
     """
 
     def __init__(self, rules: Iterable[CorrelationRule]) -> None:
-        self._rules = [rule for rule in rules if rule.enabled]
+        self._rules = [rule for rule in unique_rules(rules) if rule.enabled]
 
     def analyze_events(self, events: Iterable[SecurityEvent]) -> list[CorrelationAlert]:
         """Проверяет события по всем активным правилам и возвращает алерты."""

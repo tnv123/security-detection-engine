@@ -5,6 +5,7 @@ from security_detection_engine.storage.models import CorrelationAlertRow, EventR
 
 def event_to_row(event: SecurityEvent) -> EventRow:
     """Преобразует событие, сериализуя data в JSON-совместимые значения."""
+    event = SecurityEvent.model_validate(event.model_dump())
     values = event.model_dump()
     values["data"] = event.model_dump(mode="json")["data"]
     return EventRow(**values)

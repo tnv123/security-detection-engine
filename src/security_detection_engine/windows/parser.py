@@ -3,8 +3,6 @@ from datetime import datetime
 from enum import StrEnum
 from xml.etree.ElementTree import Element
 
-from pydantic import ValidationError
-
 from security_detection_engine.windows.models import WindowsEventRecord
 
 SUPPORTED_EVENT_IDS = (4624, 4625)
@@ -60,7 +58,7 @@ def parse_event(element: Element) -> ParseResult:
             provider=provider.get("Name") if provider is not None else None,
             event_data=_parse_event_data(event_data_element),
         )
-    except ValidationError:
+    except ValueError:
         return ParseResult(ParseStatus.INVALID)
     return ParseResult(ParseStatus.PARSED, record=record)
 
@@ -97,7 +95,10 @@ def _parse_event_data(element: Element | None) -> dict[str, str]:
     if element is not None:
         for item in element:
             if _local_name(item.tag) == "Data" and item.get("Name"):
-                data[item.get("Name")] = item.text or ""
+                name = item.attrib["Name"]
+                if name in data:
+                    raise ValueError("Повторное имя EventData")
+                data[name] = item.text or ""
     return data
 
 

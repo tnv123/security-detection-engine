@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from security_detection_engine.detection.models import Condition
 from security_detection_engine.models import Severity
+from security_detection_engine.models.values import finite_values
 
 
 class CorrelationStep(BaseModel):
@@ -72,11 +73,20 @@ class CorrelationAlert(BaseModel):
     end_timestamp: datetime
     group_values: dict[str, Any]
 
+    _finite = field_validator("group_values")(finite_values)
+
     @field_validator("timestamp", "start_timestamp", "end_timestamp")
     @classmethod
     def timestamps_must_be_timezone_aware(cls, value: datetime) -> datetime:
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("timestamp должен содержать информацию о часовом поясе")
+        return value
+
+    @field_validator("event_ids")
+    @classmethod
+    def unique_events(cls, value: list[UUID]) -> list[UUID]:
+        if len(set(value)) != len(value):
+            raise ValueError("Повторный UUID в корреляции")
         return value
 
     @model_validator(mode="after")

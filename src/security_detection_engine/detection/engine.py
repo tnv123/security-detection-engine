@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 
+from security_detection_engine.detection.loader import unique_rules
 from security_detection_engine.detection.matcher import match_rule
 from security_detection_engine.detection.models import Alert, DetectionRule
 from security_detection_engine.models import SecurityEvent
@@ -13,7 +14,7 @@ class DetectionEngine:
     """
 
     def __init__(self, rules: Iterable[DetectionRule]) -> None:
-        self._rules = [rule for rule in rules if rule.enabled]
+        self._rules = [rule for rule in unique_rules(rules) if rule.enabled]
 
     def analyze_event(self, event: SecurityEvent) -> list[Alert]:
         """Проверяет одно событие и возвращает список алертов."""

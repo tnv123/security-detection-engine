@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import (
     DataError,
@@ -10,6 +11,7 @@ from sqlalchemy.exc import (
     TimeoutError,
 )
 
+from security_detection_engine.api.body import RequestBodyLimit
 from security_detection_engine.api.routes import alerts, analysis, events, health
 from security_detection_engine.config import Settings, get_settings
 from security_detection_engine.correlation import (
@@ -50,6 +52,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             engine.dispose()
 
     app = FastAPI(title="Security Detection Engine", lifespan=lifespan)
+
+    app.add_middleware(RequestBodyLimit)
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        errors = []
+        for error in exc.errors():
+            detail = {key: error[key] for key in ("loc", "type", "msg")}
+            if error["type"] == "too_long":
+                detail["ctx"] = {
+                    k: v for k, v in error.get("ctx", {}).items() if isinstance(v, int)
+                }
+            errors.append(detail)
+        return JSONResponse({"detail": errors}, status_code=422)
 
     @app.exception_handler(SQLAlchemyError)
     async def database_error(request: Request, exc: SQLAlchemyError) -> JSONResponse:

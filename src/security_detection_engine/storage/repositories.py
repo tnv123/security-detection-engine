@@ -117,6 +117,7 @@ class CorrelationAlertRepository:
 
     def save(self, alert: CorrelationAlert) -> None:
         """Добавляет алерт со связями без commit."""
+        alert = CorrelationAlert.model_validate(alert.model_dump())
         values = alert.model_dump(exclude={"event_ids"})
         values["group_values"] = alert.model_dump(mode="json")["group_values"]
         row = CorrelationAlertRow(**values)

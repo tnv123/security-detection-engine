@@ -118,6 +118,11 @@ def test_readiness_and_session_cleanup(client):
     def factory():
         session = MagicMock()
         session.__enter__.return_value = session
+        from security_detection_engine.storage.revision import EXPECTED_REVISION
+
+        session.execute.return_value.scalars.return_value.all.return_value = [
+            EXPECTED_REVISION
+        ]
         sessions.append(session)
         return session
 

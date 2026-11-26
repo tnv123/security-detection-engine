@@ -1,3 +1,4 @@
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import TypeVar
 
@@ -46,6 +47,16 @@ def load_rule_file(path: Path, model: type[ModelT]) -> ModelT:
         raise RuleLoadError(f"некорректное правило в файле {path}: {exc}") from exc
 
 
+def unique_rules(rules: Iterable[ModelT]) -> Iterator[ModelT]:
+    """Проверяет идентификаторы до фильтрации отключённых правил."""
+    seen = set()
+    for rule in rules:
+        if rule.rule_id in seen:
+            raise RuleLoadError(f"Повторный rule_id: {rule.rule_id}")
+        seen.add(rule.rule_id)
+        yield rule
+
+
 def load_rule_directory(directory: Path, model: type[ModelT]) -> list[ModelT]:
     """Загружает все YAML-правила заданной модели из директории.
 
@@ -54,8 +65,10 @@ def load_rule_directory(directory: Path, model: type[ModelT]) -> list[ModelT]:
     if not directory.is_dir():
         raise RuleLoadError(f"директория правил не найдена: {directory}")
 
-    rules = []
-    for path in sorted(directory.iterdir()):
-        if path.is_file() and path.suffix.lower() in _SUPPORTED_SUFFIXES:
-            rules.append(load_rule_file(path, model))
-    return rules
+    return list(
+        unique_rules(
+            load_rule_file(path, model)
+            for path in sorted(directory.iterdir())
+            if path.is_file() and path.suffix.lower() in _SUPPORTED_SUFFIXES
+        )
+    )

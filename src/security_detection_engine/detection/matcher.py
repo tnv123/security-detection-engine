@@ -34,6 +34,20 @@ def resolve_field(data: dict[str, Any], field: str) -> tuple[bool, Any]:
     return True, current
 
 
+def _equal(left: Any, right: Any) -> bool:
+    if isinstance(left, bool) != isinstance(right, bool):
+        return False
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(
+            _equal(a, b) for a, b in zip(left, right)
+        )
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(
+            _equal(left[k], right[k]) for k in left
+        )
+    return left == right
+
+
 def _apply_operator(operator: Operator, actual: Any, expected: Any) -> bool:
     """Применяет оператор к значениям.
 
@@ -41,12 +55,14 @@ def _apply_operator(operator: Operator, actual: Any, expected: Any) -> bool:
     считается невыполненным.
     """
     if operator is Operator.EQUALS:
-        return actual == expected
+        return _equal(actual, expected)
     if operator is Operator.NOT_EQUALS:
-        return actual != expected
+        return not _equal(actual, expected)
     if operator is Operator.CONTAINS:
         if not isinstance(actual, (str, list)):
             return False
+        if isinstance(actual, list):
+            return any(_equal(item, expected) for item in actual)
         try:
             return expected in actual
         except TypeError:

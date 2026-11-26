@@ -18,8 +18,8 @@ def normalize_windows_record(record: WindowsEventRecord) -> SecurityEvent:
         severity=severity,
         host=record.computer,
         data={
+            **record.event_data,
             "event_id": record.event_id,
             "provider": record.provider,
-            **record.event_data,
         },
     )

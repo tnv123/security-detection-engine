@@ -89,15 +89,15 @@ def parse_ssh_auth_line(line: str, *, year: int, tz: tzinfo) -> ParseResult:
         return ParseResult(ParseStatus.INVALID, raw=line)
 
     try:
-        ipaddress.ip_address(attempt["ip"])
+        address = ipaddress.ip_address(attempt["ip"])
+        pid = int(prefix["pid"])
+        port = int(attempt["port"])
     except ValueError:
         return ParseResult(ParseStatus.INVALID, raw=line)
 
-    port = int(attempt["port"])
     if not 1 <= port <= 65535:
         return ParseResult(ParseStatus.INVALID, raw=line)
 
-    pid = int(prefix["pid"])
     if pid < 1:
         return ParseResult(ParseStatus.INVALID, raw=line)
 
@@ -121,7 +121,7 @@ def parse_ssh_auth_line(line: str, *, year: int, tz: tzinfo) -> ParseResult:
         success=attempt["action"] == "Accepted",
         authentication_method=attempt["method"],
         username=attempt["username"],
-        source_ip=attempt["ip"],
+        source_ip=str(address),
         source_port=port,
         invalid_user=attempt["invalid"] is not None,
     )
